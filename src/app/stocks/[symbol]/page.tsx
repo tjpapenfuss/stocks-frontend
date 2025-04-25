@@ -8,12 +8,38 @@ import { ArrowLeft, Calendar } from "lucide-react";
 
 // Define the Position type
 interface Position {
+  accountName: string | null;
+  availableShares: number;
+  averageEntryPrice: number;
+  id: string;
+  isOpen: boolean;
+  lastPrice: number;
+  lastPriceUpdatedAt: Date;
+  marketValue: number;
+  openedAt: Date;
+  realizedPlYtd: number;
   symbol: string;
-  buyPrice: number;
-  originalQuantity: number;
-  remainingQuantity: number;
-  buyDatetime: string;
-  buyOrderId: string;
+  totalCost: number;
+  totalShares: number;
+  unrealizedPl: number;
+  unrealizedPlPercent: number;
+}
+
+// Define the Transaction type
+interface Transaction {
+  symbol: string;
+  status: string;
+  side: string;
+  remainingQty: number;
+  realizedGainLoss: number;
+  orderType: string;
+  id: string;
+  filledQty: number;
+  filledAvgPrice: number;
+  filledAt: string;
+  createdAt: string;
+  clientOrderId: string;
+  accountName: string;
 }
 
 // This function runs on the server
@@ -33,14 +59,23 @@ async function getPositionData(symbol: string): Promise<Position | null> {
   try {
     // GraphQL query for a specific position
     const query = `
-      query GetPosition($symbol: String!) {
-        position(symbol: $symbol, userId: "94c779e0-d045-44a2-b507-23fd7972ae41") {
+      query singlePosition($symbol: String!) {
+        singlePosition(symbol: $symbol, userId: "e4dfe1af-f4c3-4c7f-945d-28d96546423f" accountId: "50bf8c11-d889-4eaa-8122-074cd0abf01b") {
+          accountName
+          availableShares
+          averageEntryPrice
+          id
+          isOpen
+          lastPrice
+          lastPriceUpdatedAt
+          marketValue
+          openedAt
+          realizedPlYtd
           symbol
-          buyPrice
-          originalQuantity
-          remainingQuantity
-          buyDatetime
-          buyOrderId
+          totalCost
+          totalShares
+          unrealizedPl
+          unrealizedPlPercent
         }
       }
     `;
@@ -48,10 +83,48 @@ async function getPositionData(symbol: string): Promise<Position | null> {
     const variables = { symbol };
     const data = await executeGraphQL(query, variables);
     
-    return data.position;
+    return data.singlePosition;
   } catch (error) {
     console.error(`Error fetching position data for ${symbol}:`, error);
     return null;
+  }
+}
+
+// Fetch transaction data function
+async function getTransactionData(symbol: string): Promise<Transaction[]> {
+  try {
+    // GraphQL query for transactions related to a specific symbol
+    const query = `
+      query positionTransactions($symbol: String!) {
+        positionTransactions(
+          userId: "e4dfe1af-f4c3-4c7f-945d-28d96546423f"
+          accountId: "50bf8c11-d889-4eaa-8122-074cd0abf01b"
+          symbol: $symbol
+        ) {
+          symbol
+          status
+          side
+          remainingQty
+          realizedGainLoss
+          orderType
+          id
+          filledQty
+          filledAvgPrice
+          filledAt
+          createdAt
+          clientOrderId
+          accountName
+        }
+      }
+    `;
+    
+    const variables = { symbol };
+    const data = await executeGraphQL(query, variables);
+    
+    return data.positionTransactions || [];
+  } catch (error) {
+    console.error(`Error fetching transaction data for ${symbol}:`, error);
+    return [];
   }
 }
 
@@ -62,25 +135,28 @@ export default async function StockPage({ params }: { params: { symbol: string }
   
   try {
     const stockData = await getPositionData(symbol);
+    const transactionData = await getTransactionData(symbol);
+    
+    console.log(`Fetched stock data for ${symbol}:`, stockData);
+    console.log(`Fetched transaction data for ${symbol}:`, transactionData);
     
     if (!stockData) {
       return notFound();
     }
     
     // Calculate current price (in a real app you would fetch the current price)
-    const currentPrice = stockData.buyPrice * 0.875; // Simulating a 12.5% loss
+    const currentPrice = stockData.lastPrice; // Simulating a 12.5% loss
     
     // Calculate loss values
-    const lossPerShare = stockData.buyPrice - currentPrice;
-    const totalLoss = lossPerShare * stockData.remainingQuantity;
-    const lossPercentage = (lossPerShare / stockData.buyPrice) * 100;
+    const totalLoss = stockData.unrealizedPl;
+    const lossPercentage = stockData.unrealizedPlPercent;
     
     // Calculate totals
-    const totalInvestment = stockData.buyPrice * stockData.originalQuantity;
-    const currentValue = currentPrice * stockData.remainingQuantity;
+    const totalInvestment = stockData.totalCost;
+    const currentValue = stockData.marketValue;
     
     // Format purchase date
-    const purchaseDate = new Date(stockData.buyDatetime);
+    const purchaseDate = new Date(stockData.openedAt);
     const formattedDate = purchaseDate.toLocaleDateString('en-US', {
       month: 'short',
       day: 'numeric',
@@ -113,7 +189,7 @@ export default async function StockPage({ params }: { params: { symbol: string }
           <Card className="p-6">
             <CardContent className="p-0">
               <p className="text-sm text-muted-foreground mb-1">Purchase Price</p>
-              <p className="text-2xl font-semibold">$ {stockData.buyPrice.toFixed(2)}</p>
+              <p className="text-2xl font-semibold">$ {stockData.averageEntryPrice.toFixed(2)}</p>
             </CardContent>
           </Card>
           
@@ -126,15 +202,19 @@ export default async function StockPage({ params }: { params: { symbol: string }
           
           <Card className="p-6">
             <CardContent className="p-0">
-              <p className="text-sm text-muted-foreground mb-1">Loss Amount</p>
-              <p className="text-2xl font-semibold text-red-500">$ {totalLoss.toFixed(2)}</p>
+              <p className="text-sm text-muted-foreground mb-1">P/L Amount</p>
+              <p className={`text-2xl font-semibold ${totalLoss > 0 ? 'text-green-500' : 'text-red-500'}`}>
+                $ {Math.abs(totalLoss).toFixed(2)}
+              </p>
             </CardContent>
           </Card>
           
           <Card className="p-6">
             <CardContent className="p-0">
-              <p className="text-sm text-muted-foreground mb-1">Loss Percentage</p>
-              <p className="text-2xl font-semibold text-red-500">% {lossPercentage.toFixed(2)}</p>
+              <p className="text-sm text-muted-foreground mb-1">P/L Percentage</p>
+              <p className={`text-2xl font-semibold ${lossPercentage > 0 ? 'text-green-500' : 'text-red-500'}`}>
+                % {Math.abs(lossPercentage).toFixed(2)}
+              </p>
             </CardContent>
           </Card>
         </div>
@@ -155,8 +235,8 @@ export default async function StockPage({ params }: { params: { symbol: string }
                 
                 <div className="grid grid-cols-2 gap-y-6">
                   <div>
-                    <p className="text-sm text-muted-foreground">Original Quantity</p>
-                    <p className="text-lg font-medium">{stockData.originalQuantity}</p>
+                    <p className="text-sm text-muted-foreground">Quantity</p>
+                    <p className="text-lg font-medium">{stockData.availableShares}</p>
                   </div>
                   <div>
                     <p className="text-sm text-muted-foreground">Current Value</p>
@@ -164,7 +244,7 @@ export default async function StockPage({ params }: { params: { symbol: string }
                   </div>
                   <div>
                     <p className="text-sm text-muted-foreground">Remaining Quantity</p>
-                    <p className="text-lg font-medium">{stockData.remainingQuantity}</p>
+                    <p className="text-lg font-medium">{stockData.availableShares}</p>
                   </div>
                   <div>
                     <p className="text-sm text-muted-foreground">Total Loss</p>
@@ -190,14 +270,14 @@ export default async function StockPage({ params }: { params: { symbol: string }
                 <h3 className="text-xl font-semibold mb-4">Purchase Information</h3>
                 <p className="text-sm text-muted-foreground mb-4">Details about when this position was acquired</p>
                 
-                <div className="grid grid-cols-2 gap-y-6">
+                <div className="grid grid-cols-2 gap-y-6 mb-8">
                   <div>
                     <p className="text-sm text-muted-foreground">Buy Order ID</p>
-                    <p className="text-lg font-medium">{stockData.buyOrderId}</p>
+                    <p className="text-lg font-medium">{stockData.id}</p>
                   </div>
                   <div>
                     <p className="text-sm text-muted-foreground">Purchase Price</p>
-                    <p className="text-lg font-medium">{formatCurrency(stockData.buyPrice)}</p>
+                    <p className="text-lg font-medium">{formatCurrency(stockData.averageEntryPrice)}</p>
                   </div>
                   <div>
                     <p className="text-sm text-muted-foreground">Purchase Date</p>
@@ -207,8 +287,79 @@ export default async function StockPage({ params }: { params: { symbol: string }
                     </div>
                   </div>
                   <div>
-                    <p className="text-sm text-muted-foreground">Quantity Purchased</p>
-                    <p className="text-lg font-medium">{stockData.originalQuantity}</p>
+                    <p className="text-sm text-muted-foreground">Available Shares</p>
+                    <p className="text-lg font-medium">{stockData.availableShares}</p>
+                  </div>
+                </div>
+                
+                {/* Transaction History Section */}
+                <div className="mt-8">
+                  <h4 className="text-lg font-semibold mb-4">Transaction History</h4>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="border-b">
+                          <th className="text-left py-3 font-medium">Date</th>
+                          <th className="text-left py-3 font-medium">Type</th>
+                          <th className="text-right py-3 font-medium">Quantity</th>
+                          <th className="text-right py-3 font-medium">Price</th>
+                          <th className="text-right py-3 font-medium">Total</th>
+                          <th className="text-right py-3 font-medium">Status</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {transactionData.length > 0 ? (
+                          transactionData.map((transaction) => {
+                            // Format the transaction date
+                            const txDate = new Date(transaction.filledAt || transaction.createdAt);
+                            const txFormattedDate = txDate.toLocaleDateString('en-US', {
+                              month: 'short',
+                              day: 'numeric',
+                              year: 'numeric'
+                            });
+                            const txFormattedTime = txDate.toLocaleTimeString('en-US', {
+                              hour: '2-digit',
+                              minute: '2-digit'
+                            });
+                            
+                            // Calculate total value
+                            const totalValue = transaction.filledQty * (transaction.filledAvgPrice || 0);
+                            
+                            return (
+                              <tr key={transaction.id} className="border-b">
+                                <td className="py-3">
+                                  <div>{txFormattedDate}</div>
+                                  <div className="text-xs text-muted-foreground">{txFormattedTime}</div>
+                                </td>
+                                <td className="py-3">
+                                  <span className={`px-2 py-1 rounded-full text-xs ${
+                                    transaction.side === 'buy' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                                  }`}>
+                                    {transaction.side.toUpperCase()}
+                                  </span>
+                                </td>
+                                <td className="py-3 text-right">{transaction.filledQty}</td>
+                                <td className="py-3 text-right">{formatCurrency(transaction.filledAvgPrice || 0)}</td>
+                                <td className="py-3 text-right">{formatCurrency(totalValue)}</td>
+                                <td className="py-3 text-right">
+                                  <span className={`px-2 py-1 rounded-full text-xs ${
+                                    transaction.status === 'filled' ? 'bg-blue-100 text-blue-800' : 'bg-gray-100 text-gray-800'
+                                  }`}>
+                                    {transaction.status.toUpperCase()}
+                                  </span>
+                                </td>
+                              </tr>
+                            );
+                          })
+                        ) : (
+                          <tr>
+                            <td colSpan={6} className="py-6 text-center text-muted-foreground">
+                              No transaction history available for this position.
+                            </td>
+                          </tr>
+                        )}
+                      </tbody>
+                    </table>
                   </div>
                 </div>
               </CardContent>

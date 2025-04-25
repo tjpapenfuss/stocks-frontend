@@ -15,7 +15,7 @@ import { formatCurrency, formatPercentage } from "@/lib/utils"
 interface LossLeader {
   symbol: string
   percentageDrop: number
-  buyPrice: number
+  filledAvgPrice: number
   currentPrice: number
   quantity: number
   dollarLoss: number
@@ -86,13 +86,13 @@ export function LossLeadersList() {
         // GraphQL query for loss leaders with userId parameter and pagination
         const query = `
           query GetLossLeaders($afterCursor: String) {
-            lossLeaders(userId: "94c779e0-d045-44a2-b507-23fd7972ae41", after: $afterCursor, first: 10) {
+            lossLeaders(userId: "e4dfe1af-f4c3-4c7f-945d-28d96546423f" accountId: "50bf8c11-d889-4eaa-8122-074cd0abf01b", after: $afterCursor, first: 10) {
               edges {
                 cursor
                 node {
                   symbol
                   percentageDrop
-                  buyPrice
+                  filledAvgPrice
                   currentPrice
                   quantity
                   dollarLoss
@@ -185,7 +185,7 @@ export function LossLeadersList() {
       { 
         symbol: "AAPL", 
         percentageDrop: 5.32, 
-        buyPrice: 192.58, 
+        filledAvgPrice: 192.58, 
         currentPrice: 182.52, 
         quantity: 10,
         dollarLoss: -100.60
@@ -193,7 +193,7 @@ export function LossLeadersList() {
       { 
         symbol: "TSLA", 
         percentageDrop: 12.45, 
-        buyPrice: 202.64, 
+        filledAvgPrice: 202.64, 
         currentPrice: 177.41, 
         quantity: 5,
         dollarLoss: -126.15
@@ -201,7 +201,7 @@ export function LossLeadersList() {
       { 
         symbol: "NVDA", 
         percentageDrop: 8.21, 
-        buyPrice: 893.27, 
+        filledAvgPrice: 893.27, 
         currentPrice: 820.06, 
         quantity: 2,
         dollarLoss: -146.42
@@ -209,7 +209,7 @@ export function LossLeadersList() {
       { 
         symbol: "META", 
         percentageDrop: 6.87, 
-        buyPrice: 509.32, 
+        filledAvgPrice: 509.32, 
         currentPrice: 474.33, 
         quantity: 3,
         dollarLoss: -104.97
@@ -217,7 +217,7 @@ export function LossLeadersList() {
       { 
         symbol: "AMZN", 
         percentageDrop: 5.73, 
-        buyPrice: 189.62, 
+        filledAvgPrice: 189.62, 
         currentPrice: 178.75, 
         quantity: 8,
         dollarLoss: -86.96
@@ -289,8 +289,8 @@ export function LossLeadersList() {
                   <CardContent className="pb-2">
                     <div className="grid grid-cols-2 gap-2 text-sm">
                       <div>
-                        <p className="text-muted-foreground">Buy Price</p>
-                        <p className="font-medium">{formatCurrency(stock.buyPrice)}</p>
+                        <p className="text-muted-foreground">FilledAvgPrice</p>
+                        <p className="font-medium">{formatCurrency(stock.filledAvgPrice)}</p>
                       </div>
                       <div>
                         <p className="text-muted-foreground">Quantity</p>

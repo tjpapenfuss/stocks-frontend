@@ -46,20 +46,29 @@ export const stocksApi = {
     return data.symbols;
   },
   
-  // Get positions with pagination
-  getPositions: async (first = 10, after: string | null = null) => {
+   // Get positions with pagination
+   getPositions: async (first = 10, after: string | null = null, accountId?: string) => {
     const query = `
-      query GetPositions($first: Int, $after: String) {
-        positions(first: $first, after: $after) {
+      query GetPositions($first: Int, $after: String, $accountId: String) {
+        positions(first: $first, after: $after, accountId: $accountId) {
           edges {
             cursor
             node {
+              id
               symbol
-              buy_price
-              original_quantity
-              remaining_quantity
-              buy_datetime
-              buy_order_id
+              totalShares
+              availableShares
+              averageEntryPrice
+              marketValue
+              lastPrice
+              lastPriceUpdatedAt
+              totalCost
+              unrealizedPl
+              unrealizedPlPercent
+              realizedPlYtd
+              openedAt
+              isOpen
+              accountName
             }
           }
           pageInfo {
@@ -73,29 +82,38 @@ export const stocksApi = {
       }
     `;
     
-    const variables = { first, after };
+    const variables = { first, after, accountId };
     const data = await executeGraphQL(query, variables);
     return data.positions;
   },
   
   // Get a single position by symbol
-  getPosition: async (symbol: string) => {
+  getPosition: async (symbol: string, accountId?: string) => {
     const query = `
-      query GetPosition($symbol: String!) {
-        position(symbol: $symbol) {
+      query GetSinglePosition($symbol: String!, $accountId: String) {
+        singlePosition(symbol: $symbol, accountId: $accountId) {
+          id
           symbol
-          buy_price
-          original_quantity
-          remaining_quantity
-          buy_datetime
-          buy_order_id
+          totalShares
+          availableShares
+          averageEntryPrice
+          marketValue
+          lastPrice
+          lastPriceUpdatedAt
+          totalCost
+          unrealizedPl
+          unrealizedPlPercent
+          realizedPlYtd
+          openedAt
+          isOpen
+          accountName
         }
       }
     `;
     
-    const variables = { symbol };
+    const variables = { symbol, accountId };
     const data = await executeGraphQL(query, variables);
-    return data.position;
+    return data.singlePosition;
   },
   
   // Get loss leaders with pagination
